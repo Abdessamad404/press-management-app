@@ -30,10 +30,16 @@ cp .env.example .env
 
 php artisan key:generate
 
+
 Configurer la base de données dans .env
+
 DB_DATABASE=press_management
+
 DB_USERNAME=your_username
+
 DB_PASSWORD=your_password
+
+
 
 php artisan migrate --seed
 
@@ -41,7 +47,7 @@ php artisan storage:link
 
 npm run build
 
-php artisan serve
+composer run dev
 
 \`\`\`
 
