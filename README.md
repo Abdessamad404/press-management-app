@@ -36,4 +36,4 @@ php artisan serve
 
 ## Comptes de test
 - Éditeur: editor@test.com / password
-- Rédacteur: writer@test.com / password" > README.md
+- Rédacteur: writer@test.com / password"
