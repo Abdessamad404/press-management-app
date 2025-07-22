@@ -18,6 +18,7 @@ class RolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view all articles']);
         Permission::firstOrCreate(['name' => 'approve articles']);
         Permission::firstOrCreate(['name' => 'reject articles']);
+        Permission::firstOrCreate(['name' => 'edit all articles']);
 
         // Créer les rôles
         $writerRole = Role::firstOrCreate(['name' => 'writer']);
