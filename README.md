@@ -47,7 +47,7 @@ php artisan storage:link
 
 npm run build
 
-php artisan serve
+composer run dev
 
 \`\`\`
 
