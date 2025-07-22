@@ -24,13 +24,22 @@ cd press-management-app
 
 composer install
 
+npm install
+
 cp .env.example .env
 
 php artisan key:generate
 
+Configurer la base de données dans .env
+DB_DATABASE=press_management
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+
 php artisan migrate --seed
 
-npm run dev
+php artisan storage:link
+
+npm run build
 
 php artisan serve
 
