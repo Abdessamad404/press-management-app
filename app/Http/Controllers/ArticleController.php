@@ -45,7 +45,7 @@ class ArticleController extends Controller
         // Tri
         $sortBy = $request->get('sort', 'date');
         $direction = $request->get('direction', $sortBy === 'category' ? 'asc' : 'desc');
-        
+
         if ($sortBy === 'category') {
             $query->orderBy('category', $direction);
             // Add secondary sort by date for consistent results
@@ -180,7 +180,7 @@ class ArticleController extends Controller
             return redirect()->route('articles.index')->with('error', 'Non autorisé.');
         }
 
-        if ($article->getRawOriginal('status') !== 'pending') {
+        if ($article->getRawOriginal('status') !== 'pending' && $article->getRawOriginal('status') !== 'approved') {
             return redirect()->route('articles.index')
                 ->with('error', 'Seuls les articles en attente peuvent être approuvés.');
         }
@@ -218,7 +218,7 @@ class ArticleController extends Controller
 
         $sortBy = $request->get('sort', 'date');
         $direction = $request->get('direction', 'desc'); // Default to newest first for date
-        
+
         if ($sortBy === 'category') {
             $query->orderBy('category', $direction);
             // Add secondary sort by date for consistent results
