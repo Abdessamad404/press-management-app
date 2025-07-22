@@ -17,13 +17,21 @@ Système de gestion éditoriale pour rédactions avec workflow de validation.
 
 ## Installation
 \`\`\`bash
+
 git clone https://github.com/Abdessamad404/press-management-app.git
+
 cd press-management-app
+
 composer install
+
 cp .env.example .env
+
 php artisan key:generate
+
 php artisan migrate --seed
+
 php artisan serve
+
 \`\`\`
 
 ## Comptes de test
