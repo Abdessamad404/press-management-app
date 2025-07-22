@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class ArticleController extends Controller
@@ -41,12 +42,31 @@ class ArticleController extends Controller
             $query->where('author_id', Auth::id());
         }
 
-        $articles = $query->latest()->paginate(10)->appends($request->query());
+        // Tri
+        $sortBy = $request->get('sort', 'date');
+        $direction = $request->get('direction', $sortBy === 'category' ? 'asc' : 'desc');
+        
+        if ($sortBy === 'category') {
+            $query->orderBy('category', $direction);
+            // Add secondary sort by date for consistent results
+            if ($direction === 'asc') {
+                $query->orderBy('created_at', 'desc');
+            } else {
+                $query->orderBy('created_at', 'asc');
+            }
+        } else {
+            // Sort by date
+            $query->orderBy('created_at', $direction);
+        }
+
+        $articles = $query->paginate(10)->appends($request->query());
 
         return view('articles.index', [
             'articles' => $articles,
             'categories' => $this->categories,
-            'filters' => $request->only(['category', 'status', 'author'])
+            'filters' => $request->only(['category', 'status', 'author']),
+            'sort' => $sortBy,
+            'direction' => $direction
         ]);
     }
 
@@ -56,12 +76,20 @@ class ArticleController extends Controller
             'title' => 'required|string|min:5|max:255',
             'content' => 'required|string|min:10',
             'category' => ['required', Rule::in($this->categories)],
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
+
+        // Handle image upload
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('images', 'public');
+        }
 
         Article::create([
             'title' => $validated['title'],
             'content' => $validated['content'],
             'category' => $validated['category'],
+            'image' => $imagePath,
             'author_id' => Auth::id(),
             'status' => 'draft'
         ]);
@@ -72,17 +100,31 @@ class ArticleController extends Controller
 
     public function update(Request $request, Article $article)
     {
-        // Vérifier l'autorisation
-        if (Auth::user()->hasRole('writer') && $article->author_id !== Auth::id()) {
-            return redirect()->route('articles.index')
-                ->with('error', 'Non autorisé.');
+        // Vérifier l'autorisation: (writer AND owns article AND status is draft) OR (editor)
+        $user = Auth::user();
+        $isWriter = $user->hasRole('writer');
+        $isEditor = $user->hasRole('editor');
+        $ownsArticle = $article->author_id === $user->id;
+
+        if (!$isEditor && (!$isWriter || !$ownsArticle || $article->getRawOriginal('status') !== 'draft')) {
+            return redirect()->route('articles.index')->with('error', 'Non autorisé.');
         }
 
         $validated = $request->validate([
             'title' => 'required|string|min:5|max:255',
             'content' => 'required|string|min:10',
             'category' => ['required', Rule::in($this->categories)],
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            // Delete old image if it exists
+            if ($article->image) {
+                Storage::disk('public')->delete($article->image);
+            }
+            $validated['image'] = $request->file('image')->store('images', 'public');
+        }
 
         $article->update($validated);
 
@@ -92,13 +134,19 @@ class ArticleController extends Controller
 
     public function destroy(Article $article)
     {
-        if (Auth::user()->hasRole('writer') && $article->author_id !== Auth::id()) {
+        // Vérifier l'autorisation: (writer AND owns article AND status is draft) OR (editor)
+        $user = Auth::user();
+        $isWriter = $user->hasRole('writer');
+        $isEditor = $user->hasRole('editor');
+        $ownsArticle = $article->author_id === $user->id;
+
+        if (!$isEditor && (!$isWriter || !$ownsArticle || $article->getRawOriginal('status') !== 'draft')) {
             return redirect()->route('articles.index')->with('error', 'Non autorisé.');
         }
 
-        if ($article->status !== 'draft') {
-            return redirect()->route('articles.index')
-                ->with('error', 'Seuls les articles en brouillon peuvent être supprimés.');
+        // Delete image if it exists
+        if ($article->image) {
+            Storage::disk('public')->delete($article->image);
         }
 
         $article->delete();
@@ -107,11 +155,17 @@ class ArticleController extends Controller
 
     public function submit(Article $article)
     {
-        if (Auth::user()->hasRole('writer') && $article->author_id !== Auth::id()) {
+        $user = Auth::user();
+        $isWriter = $user->hasRole('writer');
+        $isEditor = $user->hasRole('editor');
+        $ownsArticle = $article->author_id === $user->id;
+
+        // Allow writers and editors to submit their own articles
+        if (!($isWriter || $isEditor) || !$ownsArticle) {
             return redirect()->route('articles.index')->with('error', 'Non autorisé.');
         }
 
-        if ($article->status !== 'draft') {
+        if ($article->getRawOriginal('status') !== 'draft') {
             return redirect()->route('articles.index')
                 ->with('error', 'Seuls les articles en brouillon peuvent être soumis.');
         }
@@ -126,7 +180,7 @@ class ArticleController extends Controller
             return redirect()->route('articles.index')->with('error', 'Non autorisé.');
         }
 
-        if ($article->status !== 'pending') {
+        if ($article->getRawOriginal('status') !== 'pending') {
             return redirect()->route('articles.index')
                 ->with('error', 'Seuls les articles en attente peuvent être approuvés.');
         }
@@ -141,7 +195,7 @@ class ArticleController extends Controller
             return redirect()->route('articles.index')->with('error', 'Non autorisé.');
         }
 
-        if ($article->status !== 'pending') {
+        if ($article->getRawOriginal('status') !== 'pending') {
             return redirect()->route('articles.index')
                 ->with('error', 'Seuls les articles en attente peuvent être rejetés.');
         }
@@ -153,17 +207,25 @@ class ArticleController extends Controller
     // Page publique
     public function publicIndex(Request $request)
     {
-        $query = Article::with('author')->where('status', 'approved');
+        $query = Article::with('author');
+
+        // Only show approved articles on public page
+        $query->where('status', 'approved');
 
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
 
         $sortBy = $request->get('sort', 'date');
+        $direction = $request->get('direction', 'desc'); // Default to newest first for date
+        
         if ($sortBy === 'category') {
-            $query->orderBy('category')->orderBy('created_at', 'desc');
+            $query->orderBy('category', $direction);
+            // Add secondary sort by date for consistent results
+            $query->orderBy('created_at', 'desc');
         } else {
-            $query->latest();
+            // Sort by date only
+            $query->orderBy('created_at', $direction);
         }
 
         $articles = $query->paginate(12)->appends($request->query());
@@ -172,7 +234,8 @@ class ArticleController extends Controller
             'articles' => $articles,
             'categories' => $this->categories,
             'filters' => $request->only(['category']),
-            'sort' => $sortBy
+            'sort' => $sortBy,
+            'direction' => $direction
         ]);
     }
 }

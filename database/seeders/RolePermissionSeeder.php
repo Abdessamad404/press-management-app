@@ -33,7 +33,8 @@ class RolePermissionSeeder extends Seeder
         $editorRole->givePermissionTo([
             'view all articles',
             'approve articles',
-            'reject articles'
+            'reject articles',
+            'edit all articles'
         ]);
 
         // Créer utilisateurs de test

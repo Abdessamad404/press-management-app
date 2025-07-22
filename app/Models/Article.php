@@ -18,6 +18,7 @@ class Article extends Model
         'author_id',
     ];
 
+
     public function author()
     {
         return $this->belongsTo(User::class, 'author_id');
@@ -32,4 +33,15 @@ class Article extends Model
     {
         return $query->where('status', 'pending');
     }
+
+    public function getStatusAttribute($value)
+    {
+        return [
+            'draft' => 'Brouillon',
+            'pending' => 'En attente',
+            'approved' => 'Approuvé',
+            'rejected' => 'Rejeté',
+        ][$value];
+    }
+
 }

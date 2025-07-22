@@ -32,6 +32,21 @@
                         placeholder="••••••••" />
                 </div>
 
+                <!-- Role Selection -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
+                    <select name="role" 
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" 
+                            required>
+                        <option value="">Select a role</option>
+                        <option value="writer" {{ old('role') === 'writer' ? 'selected' : '' }}>Writer</option>
+                        <option value="editor" {{ old('role') === 'editor' ? 'selected' : '' }}>Editor</option>
+                    </select>
+                    @error('role')
+                        <span class="text-red-500 text-sm">{{ $message }}</span>
+                    @enderror
+                </div>
+
                 <!-- Register Button -->
                 <x-button type="primary" class="w-full">{{ __('Create Account') }}</x-button>
             </form>
